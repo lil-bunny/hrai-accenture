@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR AI Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>HR AI</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-group">
+                    <h3>Job Descriptions</h3>
+                    <button id="view-jobs-btn" class="nav-item" data-tab="jds">
+                        <i class="fas fa-list"></i>
+                        <span>View Job List</span>
+                    </button>
+                    <button id="upload-csv-btn" class="nav-item">
+                        <i class="fas fa-upload"></i>
+                        <span>Upload JDs</span>
+                    </button>
+                    <button id="add-manual-jd-btn" class="nav-item">
+                        <i class="fas fa-plus"></i>
+                        <span>Add New JD</span>
+                    </button>
+                </div>
+                <div class="nav-group">
+                    <h3>CV Management</h3>
+                    <button id="upload-cv-btn" class="nav-item">
+                        <i class="fas fa-upload"></i>
+                        <span>Upload CVs</span>
+                    </button>
+                    <button class="nav-item" data-tab="cvs">
+                        <i class="fas fa-list"></i>
+                        <span>CV List</span>
+                    </button>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="content-area">
+            <!-- Main Content -->
+            <div id="main-content">
+                <!-- Processing Status -->
+                <div id="processing-status" class="card hidden">
+                    <div class="card-header">
+                        <h2 class="card-title">Processing Status</h2>
+                    </div>
+                    <div class="card-content">
+                        <div id="processing-queue" class="processing-queue"></div>
+                    </div>
+                </div>
+
+                <!-- Job Descriptions Section -->
+                <section id="jds-section" class="active-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Job Descriptions</h2>
+                        </div>
+                        <div id="jd-cards" class="grid"></div>
+                    </div>
+                </section>
+
+                <!-- CVs Section -->
+                <section id="cvs-section" class="hidden">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">CVs</h2>
+                        </div>
+                        <div id="cv-cards" class="grid"></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- JD Detail View -->
+            <div id="jd-detail-view" class="hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title" id="jd-detail-title"></h2>
+                        <button id="back-to-jds" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to JDs
+                        </button>
+                    </div>
+                    <div class="card-content">
+                        <div class="jd-detail-section">
+                            <h3>Job Description</h3>
+                            <div id="jd-detail-content" class="detail-content"></div>
+                        </div>
+                        <div class="jd-detail-section">
+                            <h3>Summary</h3>
+                            <div id="jd-summary-content" class="detail-content"></div>
+                        </div>
+                        <div class="jd-detail-section">
+                            <h3>Preferred Candidates</h3>
+                            <div id="preferred-candidates-content" class="detail-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CV Detail View -->
+            <div id="cv-detail-view" class="hidden">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title" id="cv-detail-title"></h2>
+                        <button id="back-to-cvs" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i>
+                            Back to CVs
+                        </button>
+                    </div>
+                    <div class="card-content">
+                        <div class="cv-detail-section">
+                            <h3>Personal Information</h3>
+                            <div id="cv-personal-info" class="detail-content"></div>
+                        </div>
+                        <div class="cv-detail-section">
+                            <h3>Skills</h3>
+                            <div id="cv-skills" class="detail-content"></div>
+                        </div>
+                        <div class="cv-detail-section">
+                            <h3>Experience</h3>
+                            <div id="cv-experience" class="detail-content"></div>
+                        </div>
+                        <div class="cv-detail-section">
+                            <h3>Education</h3>
+                            <div id="cv-education" class="detail-content"></div>
+                        </div>
+                        <div class="cv-detail-section">
+                            <h3>Full Text</h3>
+                            <div id="cv-full-text" class="detail-content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual JD Form Modal -->
+    <div id="jd-form-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Job Description</h3>
+                <button type="button" class="close-modal" aria-label="Close modal">&times;</button>
+            </div>
+            <form id="manual-jd-form">
+                <div class="form-group">
+                    <label class="form-label" for="title">Job Title</label>
+                    <input type="text" id="title" class="form-input" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="description">Job Description</label>
+                    <textarea id="description" class="form-input" rows="5" required></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-jd-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add JD</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
