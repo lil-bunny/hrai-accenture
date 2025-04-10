@@ -58,7 +58,13 @@ Open `index.html` manually in your browser, or preferably via Live Server for re
 - Or simply double-click `index.html`
 
 ## 📸 Preview
-*Coming Soon: UI Screenshots & Demo Video*
+Here’s a sneak peek at the UI with some screenshots:  
+
+![Screenshot 1 - Taken 2025-04-11 01:12:04](https://firebasestorage.googleapis.com/v0/b/annie-d9cef.appspot.com/o/Screenshot%202025-04-11%20011204.png?alt=media&token=4b5d9e01-a2ef-42aa-8a0d-e57d004db1d9)  
+![Screenshot 2 - Taken 2025-04-11 01:12:29](https://firebasestorage.googleapis.com/v0/b/annie-d9cef.appspot.com/o/Screenshot%202025-04-11%20011229.png?alt=media&token=5bade783-ead6-4d5d-ad06-87ea98de6732)  
+![Screenshot 3 - Taken 2025-04-11 01:13:00](https://firebasestorage.googleapis.com/v0/b/annie-d9cef.appspot.com/o/Screenshot%202025-04-11%20011300.png?alt=media&token=b62c5988-1820-4b6e-ba21-9a8f1e0acc7c)  
+
+*More UI Screenshots & Demo Video Coming Soon!*
 
 ## 🤝 Team
 Made with 💙 for the **Accenture Gen AI Hackathon**  
