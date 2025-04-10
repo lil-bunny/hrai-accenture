@@ -630,7 +630,7 @@ function updateView() {
                     <div>
                         <h3 class="font-semibold mb-2">Full Text</h3>
                         <div class="bg-gray-50 p-4 rounded whitespace-pre-wrap">
-                            ${selectedItem.fullParsedText || 'No extracted information'}
+                    ${selectedItem.fullParsedText || 'No extracted information'}
                         </div>
                     </div>
                 </div>
@@ -647,7 +647,7 @@ function createLoadingOverlay(text = 'Processing...') {
         <div class="text-center">
             <div class="loading-spinner"></div>
             <div class="loading-text">${text}</div>
-        </div>
+                    </div>
     `;
     document.body.appendChild(overlay);
     return overlay;
@@ -709,11 +709,32 @@ function updateProcessingStatus() {
                 <div class="status-details">
                     <div class="status-name">${item.file.name}</div>
                     <div class="status-stage">${statusText}</div>
-                </div>
+                    </div>
             </div>
         `;
         queueContainer.appendChild(itemElement);
     });
+}
+
+// Check if app is running locally or deployed
+const isRunningLocally = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1';
+
+// Determine the API base URL based on deployment environment
+const apiBaseUrl = isRunningLocally 
+    ? 'http://localhost:11434' 
+    : 'http://localhost:11434'; // Will only work when using a proxy or browser extension for CORS
+
+// Function to make API calls to Ollama (either directly or through proxy)
+async function callOllamaAPI(endpoint, options) {
+    try {
+        console.log(`Calling API at ${apiBaseUrl}${endpoint}`);
+        const response = await fetch(`${apiBaseUrl}${endpoint}`, options);
+        return await response.json();
+    } catch (error) {
+        console.error(`Error calling API at ${apiBaseUrl}${endpoint}:`, error);
+        throw error;
+    }
 }
 
 // Process queue in background
@@ -743,8 +764,8 @@ async function processQueue() {
         updateProcessingStatus();
         
         // Make separate API calls for each section
-        const [personalInfoResponse, skillsResponse, educationResponse, experienceResponse] = await Promise.all([
-            fetch('http://localhost:11434/api/chat', {
+        const responses = await Promise.all([
+            callOllamaAPI('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -759,7 +780,7 @@ async function processQueue() {
                     stream: false
                 })
             }),
-            fetch('http://localhost:11434/api/chat', {
+            callOllamaAPI('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -774,7 +795,7 @@ async function processQueue() {
                     stream: false
                 })
             }),
-            fetch('http://localhost:11434/api/chat', {
+            callOllamaAPI('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -789,7 +810,7 @@ async function processQueue() {
                     stream: false
                 })
             }),
-            fetch('http://localhost:11434/api/chat', {
+            callOllamaAPI('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -806,24 +827,33 @@ async function processQueue() {
             })
         ]);
 
-        if (!personalInfoResponse.ok || !skillsResponse.ok || !educationResponse.ok || !experienceResponse.ok) {
-            throw new Error('Failed to parse CV sections');
+        // Improved validation for API responses
+        const [personalInfoResponse, skillsResponse, educationResponse, experienceResponse] = responses;
+        
+        console.log('Response data:', {
+            personalInfo: personalInfoResponse,
+            skills: skillsResponse,
+            education: educationResponse,
+            experience: experienceResponse
+        });
+        
+        // Check if we have valid responses and extract content
+        if (!personalInfoResponse || !skillsResponse || !educationResponse || !experienceResponse) {
+            throw new Error('One or more API responses were invalid');
         }
-
-        const [personalInfoData, skillsData, educationData, experienceData] = await Promise.all([
-            personalInfoResponse.json(),
-            skillsResponse.json(),
-            educationResponse.json(),
-            experienceResponse.json()
-        ]);
+        
+        // Extract message content with fallbacks
+        const personalInfoContent = personalInfoResponse.message?.content || '';
+        const skillsContent = skillsResponse.message?.content || 'Not available';
+        const educationContent = educationResponse.message?.content || 'Not available';
+        const experienceContent = experienceResponse.message?.content || 'Not available';
 
         // Parse personal information
-        const personalInfoText = personalInfoData.message?.content || '';
         const personalInfo = {
-            name: extractValue(personalInfoText, 'Name:'),
-            email: extractValue(personalInfoText, 'Email:'),
-            phone: extractValue(personalInfoText, 'Phone:'),
-            location: extractValue(personalInfoText, 'Location:')
+            name: extractValue(personalInfoContent, 'Name:'),
+            email: extractValue(personalInfoContent, 'Email:'),
+            phone: extractValue(personalInfoContent, 'Phone:'),
+            location: extractValue(personalInfoContent, 'Location:')
         };
 
         const newCV = {
@@ -834,11 +864,14 @@ async function processQueue() {
             email: personalInfo.email,
             phone: personalInfo.phone,
             location: personalInfo.location,
-            skills: skillsData.message?.content || 'Not available',
-            education: educationData.message?.content || 'Not available',
-            experience: experienceData.message?.content || 'Not available',
+            skills: skillsContent,
+            education: educationContent,
+            experience: experienceContent,
             fullParsedText: text
         };
+
+        // Log created CV for debugging
+        console.log('Created CV object:', newCV);
 
         // Save to SQLite
         await saveCV(newCV);
@@ -862,6 +895,7 @@ async function processQueue() {
 
     } catch (error) {
         console.error(`Error processing CV ${cv.file.name}:`, error);
+        console.error('Error details:', error.stack);
         showError(`Failed to process ${cv.file.name}: ${error.message}`);
         
         // Remove the failed CV from queue
@@ -996,40 +1030,56 @@ Best regards,
 HR Team
 `;
 
-        // Show notification about email
-        const emailInfo = document.createElement('div');
-        emailInfo.className = 'email-notification';
-        emailInfo.innerHTML = `
-            <div class="email-card">
-                <div class="email-header">
-                    <strong>Email would be sent to: ${candidate.email}</strong>
-                    <button class="close-notification">×</button>
-                </div>
-                <div class="email-content">
-                    <p><strong>Subject:</strong> Congratulations! You've been shortlisted for ${jd.title}</p>
-                    <p><strong>Body:</strong></p>
-                    <pre>${emailText}</pre>
-                    <p class="note">NOTE: Due to browser CORS restrictions, actual email sending is disabled in this demo. In production, emails would be sent through a backend service.</p>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(emailInfo);
+        // Email metadata
+        const emailSubject = `Congratulations! You've been shortlisted for ${jd.title}`;
         
-        // Add event listener to close button
-        const closeButton = emailInfo.querySelector('.close-notification');
-        closeButton.addEventListener('click', () => {
-            emailInfo.remove();
-        });
-        
-        // Auto-remove after 20 seconds
-        setTimeout(() => {
-            if (document.body.contains(emailInfo)) {
-                emailInfo.remove();
-            }
-        }, 20000);
+        // Construct the email data for Mailtrap
+        const emailData = {
+            "from": {
+                "email": "hr@example.com",
+                "name": "HR AI Recruitment"
+            },
+            "to": [
+                {"email": candidate.email}
+            ],
+            "subject": emailSubject,
+            "text": emailText,
+            "category": "Candidate Notification"
+        };
 
-        console.log(`✅ Email notification would be sent to ${candidate.email} in production environment`);
-        return true;
+        console.log('Sending email with data:', emailData);
+        
+        // Directly call the Mailtrap API
+        try {
+            const response = await fetch('https://test-112028648234.us-central1.run.app', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer cccaaa5723088f0085d04d0f741b071e'
+                },
+                body: JSON.stringify(emailData)
+            });
+            
+            const result = await response.json();
+            console.log('Email send result:', result);
+            
+            if (response.ok) {
+                // Show success notification
+                showSuccess(`Email notification sent to ${candidate.email} successfully!`);
+                return true;
+            } else {
+                console.error('Failed to send email:', result);
+                showError(`Failed to send email: ${result?.message || 'Unknown error'}`);
+                // Show the preview as fallback
+                showEmailPreview(candidate.email, emailSubject, emailText);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error sending email via Mailtrap API:', error);
+            // Show the preview as fallback
+            showEmailPreview(candidate.email, emailSubject, emailText);
+            return false;
+        }
     } catch (error) {
         console.error('Error with email notification:', error);
         showError(`Email notification could not be processed: ${error.message}`);
@@ -1037,10 +1087,61 @@ HR Team
     }
 }
 
+// Function to show success message
+function showSuccess(message) {
+    console.log(message);
+    const successOverlay = createLoadingOverlay('Success');
+    successOverlay.querySelector('.loading-text').textContent = message;
+    successOverlay.querySelector('.loading-spinner').style.display = 'none';
+    
+    // Add a green color to indicate success
+    successOverlay.querySelector('.loading-text').style.color = 'green';
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        successOverlay.remove();
+    }, 5000);
+}
+
+// Function to show email preview (fallback if sending fails)
+function showEmailPreview(recipientEmail, subject, emailText) {
+    // Show notification about email
+    const emailInfo = document.createElement('div');
+    emailInfo.className = 'email-notification';
+    emailInfo.innerHTML = `
+        <div class="email-card">
+            <div class="email-header">
+                <strong>Email Preview (to: ${recipientEmail})</strong>
+                <button class="close-notification">×</button>
+            </div>
+            <div class="email-content">
+                <p><strong>Subject:</strong> ${subject}</p>
+                <p><strong>Body:</strong></p>
+                <pre>${emailText}</pre>
+                <p class="note">Email sending failed. This is a preview of what would have been sent.</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(emailInfo);
+    
+    // Add event listener to close button
+    const closeButton = emailInfo.querySelector('.close-notification');
+    closeButton.addEventListener('click', () => {
+        emailInfo.remove();
+    });
+    
+    // Auto-remove after 20 seconds
+    setTimeout(() => {
+        if (document.body.contains(emailInfo)) {
+            emailInfo.remove();
+        }
+    }, 20000);
+}
+
 // Generate personalized message using Gemma API
 async function generatePersonalizedMessage(candidate, jd) {
     try {
-        const response = await fetch('http://localhost:11434/api/chat', {
+        const response = await callOllamaAPI('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1061,9 +1162,8 @@ async function generatePersonalizedMessage(candidate, jd) {
             })
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            return data.message?.content || 'Your CV stood out to us, and we believe your skills and experience make you an excellent candidate for this position.';
+        if (response.message?.content) {
+            return response.message.content;
         } else {
             console.error('Error generating personalized message');
             return 'Your CV stood out to us, and we believe your skills and experience make you an excellent candidate for this position.';
@@ -1077,7 +1177,7 @@ async function generatePersonalizedMessage(candidate, jd) {
 // Generate interview format using Gemma API
 async function generateInterviewFormat(jd) {
     try {
-        const response = await fetch('http://localhost:11434/api/chat', {
+        const response = await callOllamaAPI('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1097,13 +1197,8 @@ async function generateInterviewFormat(jd) {
             })
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            return data.message?.content || `
-1. Initial Phone Screening (15-20 minutes)
-2. Technical Assessment (45-60 minutes)
-3. Panel Interview with the Team (1 hour)
-4. Final Interview with Management (30 minutes)`;
+        if (response.message?.content) {
+            return response.message.content;
         } else {
             console.error('Error generating interview format');
             return `
@@ -1122,7 +1217,7 @@ async function generateInterviewFormat(jd) {
     }
 }
 
-// Update matchCVsToJDs to handle real-time updates and batch processing
+// Update matchCVsToJDs to use the proxy service
 async function matchCVsToJDs(cv) {
     console.log(`\nStarting to match CV "${cv.name}" with all JDs...`);
     let matchCount = 0;
@@ -1145,7 +1240,7 @@ async function matchCVsToJDs(cv) {
             try {
                 console.log(`Matching CV "${cv.name}" with JD "${jd.title}"...`);
 
-                const response = await fetch('http://localhost:11434/api/chat', {
+                const response = await callOllamaAPI('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1157,12 +1252,11 @@ async function matchCVsToJDs(cv) {
                     })
                 });
 
-                if (!response.ok) {
+                if (!response.message) {
                     throw new Error('Failed to get match score');
                 }
 
-                const data = await response.json();
-                const scoreMatch = data.message?.content?.match(/(\d+)%?/);
+                const scoreMatch = response.message.content.match(/(\d+)%?/);
                 const score = scoreMatch ? parseInt(scoreMatch[1]) : 0;
                 
                 console.log(`Match score for "${jd.title}": ${score}%`);
@@ -1184,7 +1278,7 @@ async function matchCVsToJDs(cv) {
                         updateView();
                     }
                     
-                    // NEW: Send email notification to candidate
+                    // Send email notification to candidate
                     await sendMatchNotification(cv, jd, score);
                     
                     return { jdId: jd.id, matched: true, score };
@@ -1255,8 +1349,8 @@ async function handleCSVUpload(event) {
             
             if (data.length === 0) {
                 alert('CSV file is empty.');
-                return;
-            }
+            return;
+        }
 
             // Find column indices
             const headers = Object.keys(data[0]);
@@ -1272,10 +1366,10 @@ async function handleCSVUpload(event) {
                 h.toLowerCase().includes('details')
             );
 
-            if (titleIndex === -1 || descriptionIndex === -1) {
+        if (titleIndex === -1 || descriptionIndex === -1) {
                 alert('Required columns (Job Title and Job Description) not found in the CSV file.');
-                return;
-            }
+            return;
+        }
 
             // Process JDs
             for (let i = 0; i < data.length; i++) {
@@ -1283,8 +1377,8 @@ async function handleCSVUpload(event) {
                 const title = row[headers[titleIndex]];
                 const description = row[headers[descriptionIndex]];
                 
-                if (title && description) {
-                    const id = generateUniqueId();
+            if (title && description) {
+                const id = generateUniqueId();
                     const newJD = { 
                         id, 
                         title, 
@@ -1302,7 +1396,7 @@ async function handleCSVUpload(event) {
                     
                     try {
                         // Generate summary
-                        const response = await fetch('http://localhost:11434/api/chat', {
+                        const response = await callOllamaAPI('/api/chat', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1318,13 +1412,10 @@ async function handleCSVUpload(event) {
                             })
                         });
 
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data && data.message && data.message.content) {
-                                newJD.summary = data.message.content.trim();
-                                // Save updated JD with summary
-                                await saveJD(newJD);
-                            }
+                        if (response && response.message && response.message.content) {
+                            newJD.summary = response.message.content.trim();
+                            // Save updated JD with summary
+                            await saveJD(newJD);
                         }
                     } catch (error) {
                         console.error('Error generating summary:', error);
@@ -1365,6 +1456,40 @@ async function handleCSVUpload(event) {
     reader.readAsBinaryString(file);
 }
 
+// Fetch JD summary from Ollama API
+async function getSummary(id, description) {
+    try {
+        const response = await callOllamaAPI('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gemma2:2b',
+                messages: [
+                    { role: 'system', content: 'you are a job summarizer' },
+                    { role: 'user', content: `Summarize this: ${description}` }
+                ],
+                stream: false
+            })
+        });
+
+        if (!response.message) throw new Error('API call failed');
+        const jd = jds.find(jd => jd.id === id);
+        if (jd) {
+            jd.summary = response.message?.content || 'No summary returned';
+            renderJDList();
+            if (selectedItem && selectedItem.id === id) updateView();
+        }
+    } catch (error) {
+        console.error('Error fetching summary:', error);
+        const jd = jds.find(jd => jd.id === id);
+        if (jd) {
+            jd.summary = 'Error generating summary';
+            renderJDList();
+            if (selectedItem && selectedItem.id === id) updateView();
+        }
+    }
+}
+
 // Handle manual JD submission
 function handleManualJDSubmit(event) {
     event.preventDefault();
@@ -1385,41 +1510,6 @@ function handleManualJDSubmit(event) {
 }
 
 document.getElementById('manual-jd-form').addEventListener('submit', handleManualJDSubmit);
-
-// Fetch JD summary from Ollama API
-async function getSummary(id, description) {
-    try {
-        const response = await fetch('http://localhost:11434/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'gemma2:2b',
-                messages: [
-                    { role: 'system', content: 'you are a job summarizer' },
-                    { role: 'user', content: `Summarize this: ${description}` }
-                ],
-                stream: false
-            })
-        });
-
-        if (!response.ok) throw new Error('API call failed');
-        const data = await response.json();
-        const jd = jds.find(jd => jd.id === id);
-        if (jd) {
-            jd.summary = data.message?.content || 'No summary returned';
-            renderJDList();
-            if (selectedItem && selectedItem.id === id) updateView();
-        }
-    } catch (error) {
-        console.error('Error fetching summary:', error);
-        const jd = jds.find(jd => jd.id === id);
-        if (jd) {
-            jd.summary = 'Error generating summary';
-            renderJDList();
-            if (selectedItem && selectedItem.id === id) updateView();
-        }
-    }
-}
 
 // Load existing data from SQLite
 async function loadExistingData() {

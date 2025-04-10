@@ -958,4 +958,84 @@ body {
     margin-top: 15px;
     font-size: 12px;
     border-left: 4px solid #ffeeba;
-} 
+}
+
+/* API Warning styles */
+.api-warning {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.warning-card {
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #f8d7da;
+}
+
+.warning-header {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+}
+
+.close-warning {
+    background: none;
+    border: none;
+    color: #721c24;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.warning-content {
+    padding: 15px;
+    color: #333;
+}
+
+.warning-content p {
+    margin-bottom: 10px;
+}
+
+.warning-content ol {
+    margin-left: 20px;
+    margin-bottom: 10px;
+}
+
+.warning-content li {
+    margin-bottom: 5px;
+}
+
+/* Firebase badge for deployed version */
+.firebase-badge {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background-color: #ffca28;
+    color: #333;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.firebase-badge svg {
+    width: 14px;
+    height: 14px;
+}
